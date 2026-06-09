@@ -74,7 +74,7 @@ export async function sendImageSelection(imageUrls, postId) {
 
   for (let i = 0; i < imageUrls.length; i++) {
     await bot.sendPhoto(GROUP_ID, imageUrls[i], {
-      caption: `🖼️ <b>תמונה ${i === 0 ? 'א\'': 'ב\'}</b>`,
+      caption: `🖼️ <b>תמונה ${i === 0 ? "א'": "ב'"}</b>`,
       parse_mode: 'HTML',
       reply_markup: {
         inline_keyboard: [[
