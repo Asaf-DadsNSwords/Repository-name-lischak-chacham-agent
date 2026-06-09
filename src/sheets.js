@@ -3,9 +3,10 @@ import { google } from 'googleapis';
 const SHEET_ID = process.env.GOOGLE_SHEET_ID;
 
 function getAuth() {
+  const creds = JSON.parse(process.env.GOOGLE_CREDENTIALS_JSON);
   return new google.auth.JWT({
-    email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
-    key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+    email: creds.client_email,
+    key: creds.private_key,
     scopes: ['https://www.googleapis.com/auth/spreadsheets']
   });
 }
