@@ -36,9 +36,10 @@ export async function runAgent(bot) {
   const imageFeedbackHistory = await getFeedbackHistory('images');
   const imageUrls = await generateImages(selectedTopic, imageFeedbackHistory);
 
+  const tryUpload = (img, v) => uploadToDrive(img, postId, v, 'pending').catch(() => null);
   const [driveLink1, driveLink2] = await Promise.all([
-    uploadToDrive(imageUrls[0], postId, 1, 'pending'),
-    uploadToDrive(imageUrls[1], postId, 2, 'pending')
+    tryUpload(imageUrls[0], 1),
+    tryUpload(imageUrls[1], 2)
   ]);
 
   await sendImageSelection(imageUrls, postId);
