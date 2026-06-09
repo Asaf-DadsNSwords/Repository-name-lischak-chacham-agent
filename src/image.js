@@ -48,8 +48,8 @@ export async function generateImages(topic, feedbackHistory = []) {
   console.log('Generating 2 images with prompt:', prompt.slice(0, 100) + '...');
 
   const [img1, img2] = await Promise.all([
-    openai.images.generate({ model: 'gpt-image-1', prompt, size: '1024x1024', quality: 'medium', n: 1, response_format: 'b64_json' }),
-    openai.images.generate({ model: 'gpt-image-1', prompt, size: '1024x1024', quality: 'medium', n: 1, response_format: 'b64_json' })
+    openai.images.generate({ model: 'gpt-image-1', prompt, size: '1024x1024', quality: 'medium', n: 1 }),
+    openai.images.generate({ model: 'gpt-image-1', prompt, size: '1024x1024', quality: 'medium', n: 1 })
   ]);
 
   return [img1.data[0].b64_json, img2.data[0].b64_json];
