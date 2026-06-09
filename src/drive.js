@@ -12,11 +12,10 @@ function getAuth() {
   });
 }
 
-export async function uploadToDrive(imageUrl, postId, version, status) {
+export async function uploadToDrive(imageBase64, postId, version, status) {
   const drive = google.drive({ version: 'v3', auth: getAuth() });
 
-  const imageResponse = await axios.get(imageUrl, { responseType: 'arraybuffer' });
-  const imageBuffer = Buffer.from(imageResponse.data);
+  const imageBuffer = Buffer.from(imageBase64, 'base64');
 
   const date = new Date().toISOString().split('T')[0];
   const fileName = `${date}_${postId}_v${version}_${status}.png`;

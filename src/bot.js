@@ -69,16 +69,17 @@ export async function sendTextSelection(posts, postId) {
 }
 
 // ─── שליחת 2 תמונות לבחירה ──────────────────────────────────────────────────
-export async function sendImageSelection(imageUrls, postId) {
+export async function sendImageSelection(imagesBase64, postId) {
   const bot = getBot();
 
-  for (let i = 0; i < imageUrls.length; i++) {
-    await bot.sendPhoto(GROUP_ID, imageUrls[i], {
+  for (let i = 0; i < imagesBase64.length; i++) {
+    const buffer = Buffer.from(imagesBase64[i], 'base64');
+    await bot.sendPhoto(GROUP_ID, buffer, {
       caption: `🖼️ <b>תמונה ${i === 0 ? "א'": "ב'"}</b>`,
       parse_mode: 'HTML',
       reply_markup: {
         inline_keyboard: [[
-          { text: `בחר תמונה ${i === 0 ? 'א\'': 'ב\''}`, callback_data: `img_${i}_${postId}` }
+          { text: `בחר תמונה ${i === 0 ? "א'": "ב'"}`, callback_data: `img_${i}_${postId}` }
         ]]
       }
     });
