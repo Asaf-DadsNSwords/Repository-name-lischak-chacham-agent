@@ -26,7 +26,8 @@ export async function uploadToDrive(imageBase64, postId, version, status) {
   const response = await drive.files.create({
     requestBody: { name: fileName, parents: [monthFolder] },
     media: { mimeType: 'image/png', body: Readable.from(imageBuffer) },
-    fields: 'id, webViewLink'
+    fields: 'id, webViewLink',
+    supportsAllDrives: true
   });
 
   console.log(`Uploaded to Drive: ${fileName}`);
@@ -41,7 +42,9 @@ async function getOrCreateMonthFolder(drive) {
 
   const search = await drive.files.list({
     q: `name='${folderName}' and '${FOLDER_ID}' in parents and mimeType='application/vnd.google-apps.folder'`,
-    fields: 'files(id)'
+    fields: 'files(id)',
+    supportsAllDrives: true,
+    includeItemsFromAllDrives: true
   });
 
   if (search.data.files.length > 0) return search.data.files[0].id;
@@ -52,7 +55,8 @@ async function getOrCreateMonthFolder(drive) {
       mimeType: 'application/vnd.google-apps.folder',
       parents: [FOLDER_ID]
     },
-    fields: 'id'
+    fields: 'id',
+    supportsAllDrives: true
   });
 
   return folder.data.id;
