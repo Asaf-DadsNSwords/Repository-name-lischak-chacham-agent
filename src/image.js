@@ -8,7 +8,8 @@ const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 const BASE_PROMPT = `Israeli family, parent and child, warm home atmosphere,
 minimalist style, soft blue and orange palette, no screens visible,
 friendly and calm mood, social media post style, square format 1080x1080,
-natural lighting, cozy living room setting`;
+natural lighting, cozy living room setting,
+fully clothed, family-friendly, safe for work, no romantic content`;
 
 async function extractVisualConcept(postText) {
   const response = await anthropic.messages.create({
@@ -16,11 +17,15 @@ async function extractVisualConcept(postText) {
     max_tokens: 150,
     messages: [{
       role: 'user',
-      content: `בהתבסס על הפוסט הבא, תמצת את הרגש המרכזי והסיטואציה לתיאור ויזואלי קצר באנגלית (עד 20 מילה).
-התיאור צריך לתאר מה קורה בתמונה — לא מה הטקסט אומר.
-חזור רק בתיאור הויזואלי, ללא הסבר.
+      content: `Based on the post below, write a short visual description in English (max 15 words).
+Rules:
+- Describe what is happening in the image, not what the text says
+- Family-friendly, safe for work, no controversial content
+- Focus on emotions and setting: parent and child interaction
+- No violence, romance, or sensitive themes
+- Return only the visual description, no explanation
 
-פוסט:
+Post:
 ${postText}`
     }]
   });
