@@ -2,6 +2,7 @@ import 'dotenv/config';
 import {
   sendStatus, sendSuccess, sendError,
   sendTopicSelection, sendTextSelection, sendImageSelection,
+  sendEditPrompt, sendImageFeedbackPrompt,
   waitForResponse, getBot
 } from './bot.js';
 import { generateTopics, generatePosts } from './agent.js';
@@ -29,8 +30,19 @@ export async function runAgent(bot) {
 
   const textResponse = await waitForResponse({ type: 'callback', prefix: 'text_' });
   const textIndex = parseInt(textResponse.data.split('_')[1]);
-  const selectedPost = posts[textIndex];
-  await sendStatus('טקסט נבחר ✓\nמייצר שתי תמונות...');
+  let selectedPost = posts[textIndex];
+  let wasEdited = false;
+
+  // ── שלב עריכת טקסט ──────────────────────────────────────────────────────────
+  await sendEditPrompt(selectedPost);
+  const editResponse = await waitForResponse({ type: 'any', prefix: 'edit_skip' });
+  if (editResponse.type === 'text') {
+    selectedPost = editResponse.data;
+    wasEdited = true;
+    await sendStatus('✏️ טקסט עודכן!\nמייצר שתי תמונות...');
+  } else {
+    await sendStatus('טקסט נבחר ✓\nמייצר שתי תמונות...');
+  }
 
   // ── שלב 3: יצירת 2 תמונות ──────────────────────────────────────────────────
   const imageFeedbackHistory = await getFeedbackHistory('images');
@@ -49,6 +61,25 @@ export async function runAgent(bot) {
   const selectedImageUrl = imageUrls[imgIndex];
   const selectedDriveLink = imgIndex === 0 ? driveLink1 : driveLink2;
 
+  // ── שלב פידבק תמונה ──────────────────────────────────────────────────────────
+  await sendImageFeedbackPrompt();
+  const ratingResponse = await waitForResponse({ type: 'callback', prefix: 'rating_' });
+  const rating = parseInt(ratingResponse.data.split('_')[1]);
+
+  await sendStatus('מעולה! שולח הערה אופציונלית...\n(כתוב הערה או שלח /דלג)');
+  const commentResponse = await waitForResponse({ type: 'any', prefix: 'skip' });
+  const comment = commentResponse.type === 'text' ? commentResponse.data : '';
+
+  await logToSheets('image_feedback', {
+    post_id: postId,
+    category: selectedTopic.category,
+    version: imgIndex + 1,
+    rating,
+    comment,
+    approved: true,
+    drive_link: selectedDriveLink || ''
+  });
+
   await sendStatus('תמונה נבחרה ✓\nשומר נתונים...');
 
   // ── שלב 4: שמירה ב-Sheets (פרסום Meta יתווסף בשלב הבא) ────────────────────
@@ -59,7 +90,7 @@ export async function runAgent(bot) {
     topic: selectedTopic.title,
     original_post: posts[0],
     final_post: selectedPost,
-    edited: textIndex !== 0,
+    edited: wasEdited,
     image_drive_link: selectedDriveLink,
     published_facebook: false,
     published_instagram: false

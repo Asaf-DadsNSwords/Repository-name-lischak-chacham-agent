@@ -86,6 +86,36 @@ export async function sendImageSelection(imagesBase64, postId) {
   }
 }
 
+// ─── בקשת עריכת טקסט ────────────────────────────────────────────────────────
+export async function sendEditPrompt(selectedText) {
+  const bot = getBot();
+  await bot.sendMessage(GROUP_ID,
+    `✏️ <b>רוצה לערוך את הטקסט?</b>\n\nכתוב את הגרסה הסופית שלך, או לחץ <b>דלג</b> להמשיך עם הטקסט הנוכחי.`,
+    {
+      parse_mode: 'HTML',
+      reply_markup: {
+        inline_keyboard: [[{ text: 'דלג ←', callback_data: 'edit_skip' }]]
+      }
+    }
+  );
+}
+
+// ─── בקשת פידבק על תמונה ─────────────────────────────────────────────────────
+export async function sendImageFeedbackPrompt() {
+  const bot = getBot();
+  await bot.sendMessage(GROUP_ID,
+    `⭐ <b>מה דעתך על התמונה הנבחרת?</b>\n\nדרג מ-1 עד 5 ואפשר להוסיף הערה (אופציונלי).`,
+    {
+      parse_mode: 'HTML',
+      reply_markup: {
+        inline_keyboard: [
+          [1,2,3,4,5].map(n => ({ text: `${n}⭐`, callback_data: `rating_${n}` }))
+        ]
+      }
+    }
+  );
+}
+
 // ─── המתנה לתגובה מהקבוצה ────────────────────────────────────────────────────
 export function waitForResponse(filter, timeoutMs = 24 * 60 * 60 * 1000) {
   const bot = getBot();
@@ -97,24 +127,29 @@ export function waitForResponse(filter, timeoutMs = 24 * 60 * 60 * 1000) {
       reject(new Error('Timeout — לא התקבלה תגובה תוך 24 שעות'));
     }, timeoutMs);
 
+    function done(result) {
+      clearTimeout(timer);
+      bot.removeListener('callback_query', onCallback);
+      bot.removeListener('message', onMessage);
+      resolve(result);
+    }
+
     function onCallback(query) {
       if (query.message.chat.id.toString() !== GROUP_ID.toString()) return;
-      if (filter.type === 'callback' && query.data.startsWith(filter.prefix)) {
-        clearTimeout(timer);
-        bot.removeListener('callback_query', onCallback);
-        bot.removeListener('message', onMessage);
+      const isMatch =
+        (filter.type === 'callback' && query.data.startsWith(filter.prefix)) ||
+        (filter.type === 'any' && query.data.startsWith(filter.prefix));
+      if (isMatch) {
         bot.answerCallbackQuery(query.id);
-        resolve({ type: 'callback', data: query.data, from: query.from });
+        done({ type: 'callback', data: query.data, from: query.from });
       }
     }
 
     function onMessage(msg) {
       if (msg.chat.id.toString() !== GROUP_ID.toString()) return;
-      if (filter.type === 'text') {
-        clearTimeout(timer);
-        bot.removeListener('callback_query', onCallback);
-        bot.removeListener('message', onMessage);
-        resolve({ type: 'text', data: msg.text, from: msg.from });
+      if (!msg.text || msg.text.startsWith('/')) return;
+      if (filter.type === 'text' || filter.type === 'any') {
+        done({ type: 'text', data: msg.text, from: msg.from });
       }
     }
 
