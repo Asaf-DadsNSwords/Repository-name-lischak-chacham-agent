@@ -31,7 +31,7 @@ async function searchNews(query) {
   }
 }
 
-export async function generateTopics() {
+export async function generateTopics(pastTopics = []) {
   const newsResults = [];
   for (const terms of Object.values(SEARCH_TERMS).slice(0, 3)) {
     const result = await searchNews(terms[0]);
@@ -42,8 +42,11 @@ export async function generateTopics() {
     ? `חדשות רלוונטיות מהשבוע האחרון:\n${newsResults.join('\n')}\n\n`
     : 'לא נמצאו חדשות ספציפיות השבוע — הצע נושאים כלליים.\n\n';
 
-  const prompt = `${newsContext}
-אתה עוזר לערוץ "לשחק חכם" — ערוץ לתוכן הורות וגיימינג.
+  const avoidContext = pastTopics.length > 0
+    ? `נושאים שכבר הוצעו בעבר — אל תחזור עליהם:\n${pastTopics.slice(-20).join('\n')}\n\n`
+    : '';
+
+  const prompt = `${newsContext}${avoidContext}אתה עוזר לערוץ "לשחק חכם" — ערוץ לתוכן הורות וגיימינג.
 
 הקהל: הורים לילדים שחוששים מגיימינג ומסכים.
 המסר: מעורבות הורית + הכרת התחום = גבולות בריאים.

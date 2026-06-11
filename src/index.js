@@ -7,7 +7,7 @@ import {
 } from './bot.js';
 import { generateTopics, generatePosts } from './agent.js';
 import { generateImages } from './image.js';
-import { logToSheets, getFeedbackHistory } from './sheets.js';
+import { logToSheets, getFeedbackHistory, getPastTopics } from './sheets.js';
 import { uploadToDrive } from './drive.js';
 
 export async function runAgent(bot) {
@@ -15,7 +15,8 @@ export async function runAgent(bot) {
 
   // ── שלב 1: יצירת 5 נושאים ──────────────────────────────────────────────────
   await sendStatus('מחפש נושאים רלוונטיים...');
-  const topics = await generateTopics();
+  const pastTopics = await getPastTopics();
+  const topics = await generateTopics(pastTopics);
   await sendTopicSelection(topics);
 
   const topicResponse = await waitForResponse({ type: 'callback', prefix: 'topic_' });
@@ -88,6 +89,7 @@ export async function runAgent(bot) {
     date: new Date().toISOString(),
     category: selectedTopic.category,
     topic: selectedTopic.title,
+    suggested_topics: topics.map(t => t.title).join(', '),
     original_post: posts[0],
     final_post: selectedPost,
     edited: wasEdited,

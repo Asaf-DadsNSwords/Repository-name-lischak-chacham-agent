@@ -23,6 +23,7 @@ const SHEET_NAMES = {
 const HEADERS = {
   posts: [
     'תאריך', 'post_id', 'קטגוריה', 'נושא',
+    'נושאים_שהוצעו',
     'טקסט_מקורי', 'טקסט_סופי',
     'נערך', 'drive_link_תמונה',
     'פורסם_פייסבוק', 'פורסם_אינסטגרם'
@@ -70,6 +71,7 @@ export async function logToSheets(sheetType, data) {
       data.post_id,
       data.category,
       data.topic,
+      data.suggested_topics || '',
       data.original_post,
       data.final_post,
       data.edited ? 'כן' : 'לא',
@@ -99,6 +101,28 @@ export async function logToSheets(sheetType, data) {
   });
 
   console.log(`Logged to ${sheetName}`);
+}
+
+export async function getPastTopics() {
+  const sheets = getSheets();
+  try {
+    const res = await sheets.spreadsheets.values.get({
+      spreadsheetId: SHEET_ID,
+      range: `${SHEET_NAMES.posts}!A:Z`
+    });
+    const rows = res.data.values || [];
+    if (rows.length <= 1) return [];
+    const headers = rows[0];
+    const topicsCol = headers.indexOf('נושאים_שהוצעו');
+    if (topicsCol === -1) return [];
+    return rows.slice(1)
+      .map(row => row[topicsCol] || '')
+      .filter(Boolean)
+      .flatMap(cell => cell.split(',').map(t => t.trim()))
+      .filter(Boolean);
+  } catch {
+    return [];
+  }
 }
 
 export async function getFeedbackHistory(type = 'posts') {
