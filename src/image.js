@@ -1,14 +1,33 @@
 import OpenAI from 'openai';
+import Anthropic from '@anthropic-ai/sdk';
 import axios from 'axios';
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 const BASE_PROMPT = `Israeli family, parent and child, warm home atmosphere,
 minimalist style, soft blue and orange palette, no screens visible,
 friendly and calm mood, social media post style, square format 1080x1080,
 natural lighting, cozy living room setting`;
 
-function buildPrompt(topic, feedbackHistory = []) {
+async function extractVisualConcept(postText) {
+  const response = await anthropic.messages.create({
+    model: 'claude-sonnet-4-5',
+    max_tokens: 150,
+    messages: [{
+      role: 'user',
+      content: `בהתבסס על הפוסט הבא, תמצת את הרגש המרכזי והסיטואציה לתיאור ויזואלי קצר באנגלית (עד 20 מילה).
+התיאור צריך לתאר מה קורה בתמונה — לא מה הטקסט אומר.
+חזור רק בתיאור הויזואלי, ללא הסבר.
+
+פוסט:
+${postText}`
+    }]
+  });
+  return response.content[0].text.trim();
+}
+
+async function buildPrompt(topic, postText, feedbackHistory = []) {
   let learnedGood = [];
   let learnedBad = [];
 
@@ -22,13 +41,16 @@ function buildPrompt(topic, feedbackHistory = []) {
   }
 
   const topicAddition = getTopicImageDetails(topic);
-  let prompt = `${BASE_PROMPT}, ${topicAddition}`;
+  const visualConcept = await extractVisualConcept(postText);
+
+  let prompt = `${BASE_PROMPT}, ${topicAddition}, ${visualConcept}`;
 
   if (learnedGood.length > 0)
     prompt += `\n\nPREFERRED STYLE (based on past approvals): ${learnedGood.slice(-3).join(', ')}`;
   if (learnedBad.length > 0)
     prompt += `\n\nAVOID: ${learnedBad.slice(-3).join(', ')}`;
 
+  console.log('Visual concept:', visualConcept);
   return prompt;
 }
 
@@ -43,8 +65,8 @@ function getTopicImageDetails(topic) {
   return map[topic.category] || 'parent and child in positive interaction, warm family moment';
 }
 
-export async function generateImages(topic, feedbackHistory = []) {
-  const prompt = buildPrompt(topic, feedbackHistory);
+export async function generateImages(topic, postText, feedbackHistory = []) {
+  const prompt = await buildPrompt(topic, postText, feedbackHistory);
   console.log('Generating 2 images with prompt:', prompt.slice(0, 100) + '...');
 
   const [img1, img2] = await Promise.all([

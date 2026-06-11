@@ -47,7 +47,7 @@ export async function runAgent(bot) {
 
   // ── שלב 3: יצירת 2 תמונות ──────────────────────────────────────────────────
   const imageFeedbackHistory = await getFeedbackHistory('images');
-  const imageUrls = await generateImages(selectedTopic, imageFeedbackHistory);
+  const imageUrls = await generateImages(selectedTopic, selectedPost, imageFeedbackHistory);
 
   const tryUpload = (img, v) => uploadToDrive(img, postId, v, 'pending').catch(() => null);
   const [driveLink1, driveLink2] = await Promise.all([
