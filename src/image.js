@@ -23,6 +23,8 @@ Rules:
 - Family-friendly, safe for work, no controversial content
 - Focus on emotions and setting: parent and child interaction
 - No violence, romance, or sensitive themes
+- Avoid gaming jargon that could be misinterpreted (e.g. "skins", "shooting", "killing")
+- Use neutral family scene language only
 - Return only the visual description, no explanation
 
 Post:
