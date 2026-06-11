@@ -17,7 +17,8 @@ function getSheets() {
 
 const SHEET_NAMES = {
   posts: 'פוסטים',
-  image_feedback: 'פידבק תמונות'
+  image_feedback: 'פידבק תמונות',
+  config: 'קונפיגורציה'
 };
 
 const HEADERS = {
@@ -31,6 +32,9 @@ const HEADERS = {
   image_feedback: [
     'תאריך', 'post_id', 'קטגוריה', 'גרסה',
     'prompt', 'דירוג', 'הערה', 'אושרה', 'drive_link'
+  ],
+  config: [
+    'תאריך', 'סוג', 'תיאור_השינוי', 'ערך', 'פעיל'
   ]
 };
 
@@ -147,5 +151,62 @@ export async function getFeedbackHistory(type = 'posts') {
     });
   } catch {
     return [];
+  }
+}
+
+export async function getPostCount() {
+  const sheets = getSheets();
+  try {
+    const res = await sheets.spreadsheets.values.get({
+      spreadsheetId: SHEET_ID,
+      range: `${SHEET_NAMES.posts}!A:A`
+    });
+    const rows = res.data.values || [];
+    return Math.max(0, rows.length - 1);
+  } catch {
+    return 0;
+  }
+}
+
+export async function saveConfig(type, description, value) {
+  const sheets = getSheets();
+  await ensureSheet('config');
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: SHEET_ID,
+    range: `${SHEET_NAMES.config}!A:Z`,
+    valueInputOption: 'RAW',
+    requestBody: { values: [[
+      new Date().toLocaleDateString('he-IL'),
+      type,
+      description,
+      value,
+      'כן'
+    ]] }
+  });
+  console.log(`Config saved: ${type}`);
+}
+
+export async function getActiveConfig() {
+  const sheets = getSheets();
+  try {
+    await ensureSheet('config');
+    const res = await sheets.spreadsheets.values.get({
+      spreadsheetId: SHEET_ID,
+      range: `${SHEET_NAMES.config}!A:Z`
+    });
+    const rows = res.data.values || [];
+    if (rows.length <= 1) return {};
+    const headers = rows[0];
+    const config = {};
+    rows.slice(1).forEach(row => {
+      const obj = {};
+      headers.forEach((h, i) => { obj[h] = row[i] || ''; });
+      if (obj['פעיל'] === 'כן') {
+        config[obj['סוג']] = { value: obj['ערך'], description: obj['תיאור_השינוי'] };
+      }
+    });
+    return config;
+  } catch {
+    return {};
   }
 }

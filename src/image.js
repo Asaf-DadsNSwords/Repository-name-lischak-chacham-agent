@@ -30,7 +30,7 @@ ${postText}`
   return response.content[0].text.trim();
 }
 
-async function buildPrompt(topic, postText, feedbackHistory = [], rejectionRemarks = '') {
+async function buildPrompt(topic, postText, feedbackHistory = [], rejectionRemarks = '', configOverrides = {}) {
   let learnedGood = [];
   let learnedBad = [];
 
@@ -52,6 +52,9 @@ async function buildPrompt(topic, postText, feedbackHistory = [], rejectionRemar
   if (learnedBad.length > 0)
     prompt += `\n\nAVOID: ${learnedBad.slice(-3).join(', ')}`;
 
+  if (configOverrides['image_prompt'])
+    prompt += `\n\nAPPROVED STYLE IMPROVEMENTS: ${configOverrides['image_prompt'].value}`;
+
   if (rejectionRemarks)
     prompt += `\n\nUSER FEEDBACK ON PREVIOUS IMAGES (apply this): ${rejectionRemarks}`;
 
@@ -70,8 +73,8 @@ function getTopicImageDetails(topic) {
   return map[topic.category] || 'parent and child in positive interaction, warm family moment';
 }
 
-export async function generateImages(topic, postText, feedbackHistory = [], rejectionRemarks = '') {
-  const prompt = await buildPrompt(topic, postText, feedbackHistory, rejectionRemarks);
+export async function generateImages(topic, postText, feedbackHistory = [], rejectionRemarks = '', configOverrides = {}) {
+  const prompt = await buildPrompt(topic, postText, feedbackHistory, rejectionRemarks, configOverrides);
   console.log('Generating 2 images with prompt:', prompt.slice(0, 100) + '...');
 
   const [img1, img2] = await Promise.all([

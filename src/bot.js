@@ -151,6 +151,26 @@ export async function sendCommentPrompt() {
   );
 }
 
+// ─── הצגת הצעות שיפור לאישור ─────────────────────────────────────────────────
+export async function sendImprovementSuggestion(suggestion, index) {
+  const bot = getBot();
+  const typeLabel = suggestion.type === 'text_prompt' ? '📝 שיפור טקסט' : '🖼️ שיפור תמונה';
+  await bot.sendMessage(GROUP_ID,
+    `🔍 <b>הצעת שיפור ${index + 1}/2 — ${typeLabel}</b>\n\n` +
+    `<b>מה זיהינו:</b> ${suggestion.description}\n\n` +
+    `<b>הצעה:</b> ${suggestion.suggestion}`,
+    {
+      parse_mode: 'HTML',
+      reply_markup: {
+        inline_keyboard: [[
+          { text: '✅ אשר', callback_data: `improve_approve_${index}` },
+          { text: '❌ דחה', callback_data: `improve_reject_${index}` }
+        ]]
+      }
+    }
+  );
+}
+
 // ─── המתנה לתגובה מהקבוצה ────────────────────────────────────────────────────
 export function waitForResponse(filter, timeoutMs = 24 * 60 * 60 * 1000) {
   const bot = getBot();

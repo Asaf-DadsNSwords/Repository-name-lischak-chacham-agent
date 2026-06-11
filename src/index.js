@@ -3,15 +3,40 @@ import {
   sendStatus, sendSuccess, sendError,
   sendTopicSelection, sendTextSelection, sendImageSelection,
   sendEditPrompt, sendImageFeedbackPrompt, sendCommentPrompt, sendRegeneratePrompt,
+  sendImprovementSuggestion,
   waitForResponse, getBot
 } from './bot.js';
-import { generateTopics, generatePosts } from './agent.js';
+import { generateTopics, generatePosts, generateImprovements } from './agent.js';
 import { generateImages } from './image.js';
-import { logToSheets, getFeedbackHistory, getPastTopics } from './sheets.js';
+import { logToSheets, getFeedbackHistory, getPastTopics, getPostCount, saveConfig, getActiveConfig } from './sheets.js';
 import { uploadToDrive } from './drive.js';
 
 export async function runAgent(bot) {
   const postId = `post_${Date.now()}`;
+
+  // ── שלב 0: הצעות שיפור (אחת לעשרה פוסטים) ──────────────────────────────────
+  const postCount = await getPostCount();
+  if (postCount > 0 && postCount % 10 === 0) {
+    await sendStatus(`🧠 <b>פוסט מספר ${postCount}!</b>\nמנתח את ההיסטוריה ומציע שיפורים...`);
+    const postHistory = await getFeedbackHistory('posts');
+    const imageFeedback = await getFeedbackHistory('images');
+    const suggestions = await generateImprovements(postHistory, imageFeedback);
+
+    for (let i = 0; i < suggestions.length; i++) {
+      await sendImprovementSuggestion(suggestions[i], i);
+      const response = await waitForResponse({ type: 'callback', prefix: `improve_` });
+      if (response.data.includes('approve')) {
+        await saveConfig(suggestions[i].type, suggestions[i].description, suggestions[i].suggestion);
+        await sendStatus(`✅ שיפור אושר ונשמר!`);
+      } else {
+        await sendStatus(`❌ שיפור נדחה.`);
+      }
+    }
+    await sendStatus('ממשיך ליצירת הפוסט...');
+  }
+
+  // ── טעינת קונפיגורציה פעילה ─────────────────────────────────────────────────
+  const activeConfig = await getActiveConfig();
 
   // ── שלב 1: יצירת 5 נושאים ──────────────────────────────────────────────────
   await sendStatus('מחפש נושאים רלוונטיים...');
@@ -26,7 +51,7 @@ export async function runAgent(bot) {
 
   // ── שלב 2: יצירת 2 טקסטים ──────────────────────────────────────────────────
   const feedbackHistory = await getFeedbackHistory();
-  const posts = await generatePosts(selectedTopic, feedbackHistory);
+  const posts = await generatePosts(selectedTopic, feedbackHistory, activeConfig);
   await sendTextSelection(posts, postId);
 
   const textResponse = await waitForResponse({ type: 'callback', prefix: 'text_' });
@@ -51,7 +76,7 @@ export async function runAgent(bot) {
   let rejectionRemarks = '';
 
   while (true) {
-    const result = await generateImages(selectedTopic, selectedPost, imageFeedbackHistory, rejectionRemarks);
+    const result = await generateImages(selectedTopic, selectedPost, imageFeedbackHistory, rejectionRemarks, activeConfig);
     imageUrls = result.images;
     imagePrompt = result.prompt;
 

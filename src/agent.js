@@ -74,7 +74,7 @@ export async function generateTopics(pastTopics = []) {
   return JSON.parse(raw);
 }
 
-export async function generatePosts(topic, feedbackHistory = []) {
+export async function generatePosts(topic, feedbackHistory = [], configOverrides = {}) {
   let feedbackContext = '';
   if (feedbackHistory.length > 0) {
     const recent = feedbackHistory.slice(-8);
@@ -84,6 +84,10 @@ export async function generatePosts(topic, feedbackHistory = []) {
     });
     feedbackContext += '\n';
   }
+
+  const configAddition = configOverrides['text_prompt']
+    ? `\nשיפורים שאושרו:\n- ${configOverrides['text_prompt'].value}\n`
+    : '';
 
   const systemPrompt = `אתה כותב תוכן לערוץ "לשחק חכם" בעברית.
 
@@ -112,7 +116,7 @@ ${feedbackContext}
 מה לא לכתוב:
 - אל תגיד "המחקר מראה ש..." בלי קישור למחקר עצמו
 - אל תשתמש ב: "חשוב לציין", "יש לזכור", "כידוע"
-- אל תטיף — הצע, אל תכתיב`;
+- אל תטיף — הצע, אל תכתיב${configAddition}`;
 
   const userPrompt = `כתוב שתי גרסאות שונות לפוסט בנושא: "${topic.title}"
 קטגוריה: ${topic.category}
@@ -132,4 +136,49 @@ ${feedbackContext}
   const raw = response.content[0].text.replace(/```json|```/g, '').trim();
   const parsed = JSON.parse(raw);
   return parsed.posts;
+}
+
+export async function generateImprovements(postHistory, imageFeedback) {
+  const recentPosts = postHistory.slice(-10);
+  const recentImageFeedback = imageFeedback.slice(-10);
+
+  const prompt = `You are analyzing the performance of a social media content agent for the channel "לשחק חכם" (parenting + gaming content).
+
+Here is the recent post history (last 10 posts):
+${recentPosts.map(p => `- Topic: ${p['נושא']} | Edited: ${p['נערך']} | Final text: ${p['טקסט_סופי']?.slice(0, 100)}...`).join('\n')}
+
+Here is the recent image feedback (last 10):
+${recentImageFeedback.map(f => `- Rating: ${f['דירוג']}/5 | Comment: ${f['הערה'] || 'none'} | Category: ${f['קטגוריה']}`).join('\n')}
+
+Based on this data, suggest exactly 2 improvements:
+1. One improvement to the TEXT writing style/prompt
+2. One improvement to the IMAGE generation prompt
+
+For each suggestion:
+- Be specific and actionable
+- Base it on patterns you see in the data (what was edited, low-rated images, comments)
+- Write the suggested new instruction in Hebrew
+
+Return JSON only:
+[
+  {
+    "type": "text_prompt",
+    "description": "short description of what you noticed",
+    "suggestion": "the specific instruction to add to the text prompt"
+  },
+  {
+    "type": "image_prompt",
+    "description": "short description of what you noticed",
+    "suggestion": "the specific instruction to add to the image prompt"
+  }
+]`;
+
+  const response = await anthropic.messages.create({
+    model: 'claude-sonnet-4-5',
+    max_tokens: 1000,
+    messages: [{ role: 'user', content: prompt }]
+  });
+
+  const raw = response.content[0].text.replace(/```json|```/g, '').trim();
+  return JSON.parse(raw);
 }
