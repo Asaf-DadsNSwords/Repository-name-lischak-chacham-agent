@@ -5,12 +5,12 @@ import { Readable } from 'stream';
 const FOLDER_ID = process.env.GOOGLE_DRIVE_FOLDER_ID;
 
 function getAuth() {
-  const creds = JSON.parse(process.env.GOOGLE_CREDENTIALS_JSON);
-  return new google.auth.JWT({
-    email: creds.client_email,
-    key: creds.private_key,
-    scopes: ['https://www.googleapis.com/auth/drive']
-  });
+  const auth = new google.auth.OAuth2(
+    process.env.GOOGLE_CLIENT_ID,
+    process.env.GOOGLE_CLIENT_SECRET
+  );
+  auth.setCredentials({ refresh_token: process.env.GOOGLE_REFRESH_TOKEN });
+  return auth;
 }
 
 export async function uploadToDrive(imageBase64, postId, version, status) {
