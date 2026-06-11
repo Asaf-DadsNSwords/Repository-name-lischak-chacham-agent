@@ -13,14 +13,14 @@ async function extractVisualConcept(postText) {
     max_tokens: 150,
     messages: [{
       role: 'user',
-      content: `Based on the post below, write a short visual description in English (max 15 words).
+      content: `Based on the post below, write a short visual description in English (max 20 words).
 Rules:
-- Describe what is happening in the image, not what the text says
+- Describe what is happening in the image
+- KEEP the specific context (e.g. if the post is about video games, show a parent and child playing video games together)
+- Do not generalize — "collaborating on activity" is wrong if the post is specifically about gaming
 - Family-friendly, safe for work, no controversial content
-- Focus on emotions and setting: parent and child interaction
 - No violence, romance, or sensitive themes
-- Avoid gaming jargon that could be misinterpreted (e.g. "skins", "shooting", "killing")
-- Use neutral family scene language only
+- Avoid only these specific words: "skins", "shooting", "killing", "gun"
 - Return only the visual description, no explanation
 
 Post:
