@@ -5,11 +5,7 @@ import axios from 'axios';
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-const BASE_PROMPT = `Israeli family, parent and child, warm home atmosphere,
-minimalist style, soft blue and orange palette, no screens visible,
-friendly and calm mood, social media post style, square format 1080x1080,
-natural lighting, cozy living room setting,
-fully clothed, family-friendly, safe for work, no romantic content`;
+const BASE_PROMPT = `raw, candid documentary photograph. Shot on 35mm film with natural, unpolished daylight creating realistic shadows. The environment is messy and lived-in, with visible dust, scuffs, and texture. The person looks completely authentic with imperfect skin texture, visible pores, slight sweat, and natural blemishes. Unedited, non-glossy, gritty realism. fully clothed, family-friendly, safe for work, no romantic content`;
 
 async function extractVisualConcept(postText) {
   const response = await anthropic.messages.create({
@@ -47,10 +43,9 @@ async function buildPrompt(topic, postText, feedbackHistory = [], rejectionRemar
     });
   }
 
-  const topicAddition = getTopicImageDetails(topic);
   const visualConcept = await extractVisualConcept(postText);
 
-  let prompt = `${BASE_PROMPT}, ${topicAddition}, ${visualConcept}`;
+  let prompt = `${BASE_PROMPT}, ${visualConcept}`;
 
   if (learnedGood.length > 0)
     prompt += `\n\nPREFERRED STYLE (based on past approvals): ${learnedGood.slice(-3).join(', ')}`;
