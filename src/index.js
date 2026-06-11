@@ -2,7 +2,7 @@ import 'dotenv/config';
 import {
   sendStatus, sendSuccess, sendError,
   sendTopicSelection, sendTextSelection, sendImageSelection,
-  sendEditPrompt, sendImageFeedbackPrompt,
+  sendEditPrompt, sendImageFeedbackPrompt, sendCommentPrompt,
   waitForResponse, getBot
 } from './bot.js';
 import { generateTopics, generatePosts } from './agent.js';
@@ -67,8 +67,8 @@ export async function runAgent(bot) {
   const ratingResponse = await waitForResponse({ type: 'callback', prefix: 'rating_' });
   const rating = parseInt(ratingResponse.data.split('_')[1]);
 
-  await sendStatus('מעולה! שולח הערה אופציונלית...\n(כתוב הערה או שלח /דלג)');
-  const commentResponse = await waitForResponse({ type: 'any', prefix: 'skip' });
+  await sendCommentPrompt();
+  const commentResponse = await waitForResponse({ type: 'any', prefix: 'comment_skip' });
   const comment = commentResponse.type === 'text' ? commentResponse.data : '';
 
   await logToSheets('image_feedback', {

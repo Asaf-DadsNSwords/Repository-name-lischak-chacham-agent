@@ -116,6 +116,20 @@ export async function sendImageFeedbackPrompt() {
   );
 }
 
+// ─── בקשת הערה אופציונלית ────────────────────────────────────────────────────
+export async function sendCommentPrompt() {
+  const bot = getBot();
+  await bot.sendMessage(GROUP_ID,
+    `💬 <b>הערה לתמונה (אופציונלי)</b>\n\nכתוב הערה לשיפור עתידי, או לחץ דלג.`,
+    {
+      parse_mode: 'HTML',
+      reply_markup: {
+        inline_keyboard: [[{ text: 'דלג ←', callback_data: 'comment_skip' }]]
+      }
+    }
+  );
+}
+
 // ─── המתנה לתגובה מהקבוצה ────────────────────────────────────────────────────
 export function waitForResponse(filter, timeoutMs = 24 * 60 * 60 * 1000) {
   const bot = getBot();
