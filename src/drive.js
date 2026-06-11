@@ -15,11 +15,6 @@ function getAuth() {
 
 export async function uploadToDrive(imageBase64, postId, version, status) {
   const auth = getAuth();
-  const oauth2 = google.oauth2({ version: 'v2', auth });
-  const userInfo = await oauth2.userinfo.get();
-  console.log('Authenticated as:', userInfo.data.email);
-  console.log('Target folder:', FOLDER_ID);
-
   const drive = google.drive({ version: 'v3', auth });
 
   const imageBuffer = Buffer.from(imageBase64, 'base64');
