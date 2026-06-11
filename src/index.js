@@ -49,7 +49,7 @@ export async function runAgent(bot) {
   const imageFeedbackHistory = await getFeedbackHistory('images');
   const imageUrls = await generateImages(selectedTopic, selectedPost, imageFeedbackHistory);
 
-  const tryUpload = (img, v) => uploadToDrive(img, postId, v, 'pending').catch(() => null);
+  const tryUpload = (img, v) => uploadToDrive(img, postId, v, 'pending').catch(e => { console.error('Drive upload error:', e.message); return null; });
   const [driveLink1, driveLink2] = await Promise.all([
     tryUpload(imageUrls[0], 1),
     tryUpload(imageUrls[1], 2)
