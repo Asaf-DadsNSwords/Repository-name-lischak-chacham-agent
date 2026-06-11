@@ -81,7 +81,7 @@ export async function generateImages(topic, postText, feedbackHistory = []) {
     openai.images.generate({ model: 'gpt-image-1', prompt, size: '1024x1024', quality: 'medium', n: 1 })
   ]);
 
-  return [img1.data[0].b64_json, img2.data[0].b64_json];
+  return { images: [img1.data[0].b64_json, img2.data[0].b64_json], prompt };
 }
 
 export async function downloadImage(url) {

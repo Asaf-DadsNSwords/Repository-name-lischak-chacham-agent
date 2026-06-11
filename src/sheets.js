@@ -25,7 +25,7 @@ const HEADERS = {
     'תאריך', 'post_id', 'קטגוריה', 'נושא',
     'נושאים_שהוצעו',
     'טקסט_מקורי', 'טקסט_סופי',
-    'נערך', 'drive_link_תמונה',
+    'נערך', 'פרומפט_תמונה', 'drive_link_תמונה',
     'פורסם_פייסבוק', 'פורסם_אינסטגרם'
   ],
   image_feedback: [
@@ -75,6 +75,7 @@ export async function logToSheets(sheetType, data) {
       data.original_post,
       data.final_post,
       data.edited ? 'כן' : 'לא',
+      data.image_prompt || '',
       data.image_drive_link || '',
       data.published_facebook ? 'כן' : 'לא',
       data.published_instagram ? 'כן' : 'לא'

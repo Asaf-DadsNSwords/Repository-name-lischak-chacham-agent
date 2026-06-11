@@ -47,7 +47,7 @@ export async function runAgent(bot) {
 
   // ── שלב 3: יצירת 2 תמונות ──────────────────────────────────────────────────
   const imageFeedbackHistory = await getFeedbackHistory('images');
-  const imageUrls = await generateImages(selectedTopic, selectedPost, imageFeedbackHistory);
+  const { images: imageUrls, prompt: imagePrompt } = await generateImages(selectedTopic, selectedPost, imageFeedbackHistory);
 
   const tryUpload = (img, v) => uploadToDrive(img, postId, v, 'pending').catch(e => { console.error('Drive upload error:', e.message); return null; });
   const [driveLink1, driveLink2] = await Promise.all([
@@ -93,6 +93,7 @@ export async function runAgent(bot) {
     original_post: posts[0],
     final_post: selectedPost,
     edited: wasEdited,
+    image_prompt: imagePrompt,
     image_drive_link: selectedDriveLink,
     published_facebook: false,
     published_instagram: false
