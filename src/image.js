@@ -34,7 +34,7 @@ ${postText}`
   return response.content[0].text.trim();
 }
 
-async function buildPrompt(topic, postText, feedbackHistory = []) {
+async function buildPrompt(topic, postText, feedbackHistory = [], rejectionRemarks = '') {
   let learnedGood = [];
   let learnedBad = [];
 
@@ -57,6 +57,9 @@ async function buildPrompt(topic, postText, feedbackHistory = []) {
   if (learnedBad.length > 0)
     prompt += `\n\nAVOID: ${learnedBad.slice(-3).join(', ')}`;
 
+  if (rejectionRemarks)
+    prompt += `\n\nUSER FEEDBACK ON PREVIOUS IMAGES (apply this): ${rejectionRemarks}`;
+
   console.log('Visual concept:', visualConcept);
   return prompt;
 }
@@ -72,8 +75,8 @@ function getTopicImageDetails(topic) {
   return map[topic.category] || 'parent and child in positive interaction, warm family moment';
 }
 
-export async function generateImages(topic, postText, feedbackHistory = []) {
-  const prompt = await buildPrompt(topic, postText, feedbackHistory);
+export async function generateImages(topic, postText, feedbackHistory = [], rejectionRemarks = '') {
+  const prompt = await buildPrompt(topic, postText, feedbackHistory, rejectionRemarks);
   console.log('Generating 2 images with prompt:', prompt.slice(0, 100) + '...');
 
   const [img1, img2] = await Promise.all([

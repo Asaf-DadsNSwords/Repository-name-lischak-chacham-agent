@@ -84,6 +84,27 @@ export async function sendImageSelection(imagesBase64, postId) {
       }
     });
   }
+
+  await bot.sendMessage(GROUP_ID,
+    `❌ <b>לא מרוצה מהתמונות?</b>\n\nלחץ "צור מחדש" וכתוב הערה — הסוכן ייצור שתי תמונות חדשות.`,
+    {
+      parse_mode: 'HTML',
+      reply_markup: {
+        inline_keyboard: [[
+          { text: '🔄 צור מחדש', callback_data: `img_reject_${postId}` }
+        ]]
+      }
+    }
+  );
+}
+
+// ─── בקשת הערה לצורך יצירה מחדש ─────────────────────────────────────────────
+export async function sendRegeneratePrompt() {
+  const bot = getBot();
+  await bot.sendMessage(GROUP_ID,
+    `✏️ <b>מה לשפר בתמונה?</b>\n\nכתוב הערה ספציפית (למשל: "יותר חיצוני", "פחות רציני", "ילד קטן יותר")`,
+    { parse_mode: 'HTML' }
+  );
 }
 
 // ─── בקשת עריכת טקסט ────────────────────────────────────────────────────────

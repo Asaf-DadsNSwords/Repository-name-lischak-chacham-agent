@@ -2,7 +2,7 @@ import 'dotenv/config';
 import {
   sendStatus, sendSuccess, sendError,
   sendTopicSelection, sendTextSelection, sendImageSelection,
-  sendEditPrompt, sendImageFeedbackPrompt, sendCommentPrompt,
+  sendEditPrompt, sendImageFeedbackPrompt, sendCommentPrompt, sendRegeneratePrompt,
   waitForResponse, getBot
 } from './bot.js';
 import { generateTopics, generatePosts } from './agent.js';
@@ -45,22 +45,38 @@ export async function runAgent(bot) {
     await sendStatus('טקסט נבחר ✓\nמייצר שתי תמונות...');
   }
 
-  // ── שלב 3: יצירת 2 תמונות ──────────────────────────────────────────────────
+  // ── שלב 3: יצירת 2 תמונות (עם אפשרות דחייה וחידוש) ────────────────────────
   const imageFeedbackHistory = await getFeedbackHistory('images');
-  const { images: imageUrls, prompt: imagePrompt } = await generateImages(selectedTopic, selectedPost, imageFeedbackHistory);
+  let imageUrls, imagePrompt, selectedImageUrl, selectedDriveLink, imgIndex;
+  let rejectionRemarks = '';
 
-  const tryUpload = (img, v) => uploadToDrive(img, postId, v, 'pending').catch(e => { console.error('Drive upload error:', e.message); return null; });
-  const [driveLink1, driveLink2] = await Promise.all([
-    tryUpload(imageUrls[0], 1),
-    tryUpload(imageUrls[1], 2)
-  ]);
+  while (true) {
+    const result = await generateImages(selectedTopic, selectedPost, imageFeedbackHistory, rejectionRemarks);
+    imageUrls = result.images;
+    imagePrompt = result.prompt;
 
-  await sendImageSelection(imageUrls, postId);
+    const tryUpload = (img, v) => uploadToDrive(img, postId, v, 'pending').catch(e => { console.error('Drive upload error:', e.message); return null; });
+    const [driveLink1, driveLink2] = await Promise.all([
+      tryUpload(imageUrls[0], 1),
+      tryUpload(imageUrls[1], 2)
+    ]);
 
-  const imgResponse = await waitForResponse({ type: 'callback', prefix: 'img_' });
-  const imgIndex = parseInt(imgResponse.data.split('_')[1]);
-  const selectedImageUrl = imageUrls[imgIndex];
-  const selectedDriveLink = imgIndex === 0 ? driveLink1 : driveLink2;
+    await sendImageSelection(imageUrls, postId);
+    const imgResponse = await waitForResponse({ type: 'callback', prefix: 'img_' });
+
+    if (imgResponse.data.includes('reject')) {
+      await sendRegeneratePrompt();
+      const remarkResponse = await waitForResponse({ type: 'text' });
+      rejectionRemarks = remarkResponse.data;
+      await sendStatus('מייצר תמונות חדשות בהתאם להערות...');
+      continue;
+    }
+
+    imgIndex = parseInt(imgResponse.data.split('_')[1]);
+    selectedImageUrl = imageUrls[imgIndex];
+    selectedDriveLink = imgIndex === 0 ? driveLink1 : driveLink2;
+    break;
+  }
 
   // ── שלב פידבק תמונה ──────────────────────────────────────────────────────────
   await sendImageFeedbackPrompt();
