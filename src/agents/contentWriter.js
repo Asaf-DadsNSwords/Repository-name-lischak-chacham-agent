@@ -1,23 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import axios from 'axios';
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const config = fs.readFileSync(path.join(__dirname, '../AGENT_CONFIG.md'), 'utf-8');
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-
-const SEARCH_TERMS = {
-  'זמן מסך': ['זמן מסך ילדים', 'screen time kids research', 'AAP screen time guidelines'],
-  'טיפים למשחק עם ילדים': ['משחקים משפחתיים', 'gaming with kids tips', 'family gaming'],
-  'מורה נבוכים': ['בקרת הורים', 'parental controls gaming', 'Game Pass explained'],
-  'הכר את המשחק': ['פורטנייט ילדים', 'Roblox parents guide', 'Minecraft education'],
-  'מחקרים וממצאים': ['מחקר גיימינג ילדים', 'video games children study 2025', 'gaming benefits kids research']
-};
-
-const CATEGORIES = Object.keys(SEARCH_TERMS);
 
 async function searchNews(query) {
   try {
@@ -31,9 +15,10 @@ async function searchNews(query) {
   }
 }
 
-export async function generateTopics(pastTopics = []) {
+// Returns array of 5 topic objects: { title, description, category }
+export async function generateTopics(pastTopics = [], persona) {
   const newsResults = [];
-  for (const terms of Object.values(SEARCH_TERMS).slice(0, 3)) {
+  for (const terms of Object.values(persona.searchTerms).slice(0, 3)) {
     const result = await searchNews(terms[0]);
     if (result) newsResults.push(result.slice(0, 300));
   }
@@ -46,12 +31,9 @@ export async function generateTopics(pastTopics = []) {
     ? `נושאים שכבר הוצעו בעבר — אל תחזור עליהם:\n${pastTopics.slice(-20).join('\n')}\n\n`
     : '';
 
-  const prompt = `${newsContext}${avoidContext}אתה עוזר לערוץ "לשחק חכם" — ערוץ לתוכן הורות וגיימינג.
+  const prompt = `${newsContext}${avoidContext}${persona.topicsPromptContext}
 
-הקהל: הורים לילדים שחוששים מגיימינג ומסכים.
-המסר: מעורבות הורית + הכרת התחום = גבולות בריאים.
-
-הקטגוריות האפשריות: ${CATEGORIES.join(', ')}
+הקטגוריות האפשריות: ${persona.categories.join(', ')}
 
 הצע בדיוק 5 נושאים לפוסט שבועי. לכל נושא:
 - כותרת קצרה (עד 6 מילים)
@@ -74,7 +56,8 @@ export async function generateTopics(pastTopics = []) {
   return JSON.parse(raw);
 }
 
-export async function generatePosts(topic, feedbackHistory = [], configOverrides = {}) {
+// Returns array of 2 post strings
+export async function generatePosts(topic, feedbackHistory = [], configOverrides = {}, persona) {
   let feedbackContext = '';
   if (feedbackHistory.length > 0) {
     const recent = feedbackHistory.slice(-8);
@@ -89,34 +72,7 @@ export async function generatePosts(topic, feedbackHistory = [], configOverrides
     ? `\nשיפורים שאושרו:\n- ${configOverrides['text_prompt'].value}\n`
     : '';
 
-  const systemPrompt = `אתה כותב תוכן לערוץ "לשחק חכם" בעברית.
-
-קהל: הורים לילדים צעירים שחוששים מגיימינג ומסכים, אך פתוחים לזווית מאוזנת.
-
-קול הערוץ:
-- גוף ראשון רבים תמיד ("אנחנו", "אצלנו", "לדעתנו")
-- טון: חברותי-מקצועי — לא אקדמי, לא סלנג
-- לא שופטים הורים — אנחנו לצידם
-- תמיד מציינים יתרון וחסרון כשרלוונטי
-
-מבנה פוסט:
-1. פתיחה: שאלה או טענה שמהדהדת עם הורים (1-2 משפטים)
-2. גוף: תוכן מאוזן ומעשי (5-8 משפטים)
-3. CTA: שאלה פתוחה שמזמינה דיון בתגובות
-
-אורך: עד 150 מילה. פסקאות קצרות עם שורות ריקות ביניהן. עד 3 אמוג'י.
-האשטגים בסוף: #לשחק_חכם #גיימינג_והורות #ילדים_ומסכים + האשטג ספציפי לנושא
-${feedbackContext}
-ציטוט מחקרים:
-- אם אתה מזכיר מחקר או ממצא מדעי — חובה לצרף קישור אמיתי לאותו מחקר (PubMed, journal, מוסד מחקרי)
-- רק קישורים שאתה בטוח שקיימים ומדויקים — אל תמציא URLs
-- אם אין לך קישור מדויק — אל תציג את הממצא כ"מחקר מראה", אלא כדעה או תצפית
-- פורמט: "לפי מחקר של [מוסד/שם] ([קישור])"
-
-מה לא לכתוב:
-- אל תגיד "המחקר מראה ש..." בלי קישור למחקר עצמו
-- אל תשתמש ב: "חשוב לציין", "יש לזכור", "כידוע"
-- אל תטיף — הצע, אל תכתיב${configAddition}`;
+  const systemPrompt = `${persona.postSystemPrompt}${feedbackContext}${configAddition}`;
 
   const userPrompt = `כתוב שתי גרסאות שונות לפוסט בנושא: "${topic.title}"
 קטגוריה: ${topic.category}
@@ -134,10 +90,10 @@ ${feedbackContext}
   });
 
   const raw = response.content[0].text.replace(/```json|```/g, '').trim();
-  const parsed = JSON.parse(raw);
-  return parsed.posts;
+  return JSON.parse(raw).posts;
 }
 
+// Returns array of 2 suggestion objects: { type, description, suggestion }
 export async function generateImprovements(postHistory, imageFeedback) {
   const recentPosts = postHistory.slice(-10);
   const recentImageFeedback = imageFeedback.slice(-10);

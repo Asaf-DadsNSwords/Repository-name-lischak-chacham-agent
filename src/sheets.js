@@ -186,6 +186,83 @@ export async function saveConfig(type, description, value) {
   console.log(`Config saved: ${type}`);
 }
 
+export async function getPostsWithoutImages(n = 5) {
+  const sheets = getSheets();
+  try {
+    const res = await sheets.spreadsheets.values.get({
+      spreadsheetId: SHEET_ID,
+      range: `${SHEET_NAMES.posts}!A:Z`
+    });
+    const rows = res.data.values || [];
+    if (rows.length <= 1) return [];
+    const headers = rows[0];
+    const driveLinkCol = headers.indexOf('drive_link_תמונה');
+    const postIdCol = headers.indexOf('post_id');
+    const topicCol = headers.indexOf('נושא');
+    const categoryCol = headers.indexOf('קטגוריה');
+    const finalPostCol = headers.indexOf('טקסט_סופי');
+    const dateCol = headers.indexOf('תאריך');
+    return rows.slice(1)
+      .filter(row => !row[driveLinkCol])
+      .slice(-n)
+      .map(row => ({
+        'post_id': row[postIdCol] || '',
+        'נושא': row[topicCol] || '',
+        'קטגוריה': row[categoryCol] || '',
+        'טקסט_סופי': row[finalPostCol] || '',
+        'תאריך': row[dateCol] || ''
+      }));
+  } catch {
+    return [];
+  }
+}
+
+export async function updatePostImage(postId, driveLink, imagePrompt) {
+  const sheets = getSheets();
+  try {
+    const res = await sheets.spreadsheets.values.get({
+      spreadsheetId: SHEET_ID,
+      range: `${SHEET_NAMES.posts}!A:Z`
+    });
+    const rows = res.data.values || [];
+    if (rows.length <= 1) return;
+    const headers = rows[0];
+    const postIdCol = headers.indexOf('post_id');
+    const driveLinkCol = headers.indexOf('drive_link_תמונה');
+    const imagePromptCol = headers.indexOf('פרומפט_תמונה');
+    const rowIndex = rows.findIndex((row, i) => i > 0 && row[postIdCol] === postId);
+    if (rowIndex === -1) { console.error(`updatePostImage: post_id ${postId} not found`); return; }
+    const sheetRow = rowIndex + 1;
+    await Promise.all([
+      sheets.spreadsheets.values.update({
+        spreadsheetId: SHEET_ID,
+        range: `${SHEET_NAMES.posts}!${columnLetter(driveLinkCol)}${sheetRow}`,
+        valueInputOption: 'RAW',
+        requestBody: { values: [[driveLink || '']] }
+      }),
+      sheets.spreadsheets.values.update({
+        spreadsheetId: SHEET_ID,
+        range: `${SHEET_NAMES.posts}!${columnLetter(imagePromptCol)}${sheetRow}`,
+        valueInputOption: 'RAW',
+        requestBody: { values: [[imagePrompt || '']] }
+      })
+    ]);
+    console.log(`Updated image data for post ${postId}`);
+  } catch (e) {
+    console.error('updatePostImage error:', e.message);
+  }
+}
+
+function columnLetter(index) {
+  let letter = '';
+  let n = index;
+  while (n >= 0) {
+    letter = String.fromCharCode((n % 26) + 65) + letter;
+    n = Math.floor(n / 26) - 1;
+  }
+  return letter;
+}
+
 export async function getActiveConfig() {
   const sheets = getSheets();
   try {

@@ -1,12 +1,10 @@
 import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
-import axios from 'axios';
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-const BASE_PROMPT = `raw, candid documentary photograph. Shot on 35mm film with natural, unpolished daylight creating realistic shadows. The environment is messy and lived-in, with visible dust, scuffs, and texture. The person looks completely authentic with imperfect skin texture, visible pores, slight sweat, and natural blemishes. Unedited, non-glossy, gritty realism. fully clothed, family-friendly, safe for work, no romantic content`;
-
+// Claude reads the post and extracts a concrete visual scene description
 async function extractVisualConcept(postText) {
   const response = await anthropic.messages.create({
     model: 'claude-sonnet-4-5',
@@ -30,9 +28,9 @@ ${postText}`
   return response.content[0].text.trim();
 }
 
-async function buildPrompt(topic, postText, feedbackHistory = [], rejectionRemarks = '', configOverrides = {}) {
-  let learnedGood = [];
-  let learnedBad = [];
+async function buildPrompt(postText, feedbackHistory = [], rejectionRemarks = '', configOverrides = {}, persona) {
+  const learnedGood = [];
+  const learnedBad = [];
 
   if (feedbackHistory.length >= 5) {
     feedbackHistory.filter(f => f.rating >= 4).forEach(f => {
@@ -44,8 +42,9 @@ async function buildPrompt(topic, postText, feedbackHistory = [], rejectionRemar
   }
 
   const visualConcept = await extractVisualConcept(postText);
+  console.log('Visual concept:', visualConcept);
 
-  let prompt = `${BASE_PROMPT}, ${visualConcept}`;
+  let prompt = `${persona.imageBasePrompt}, ${visualConcept}`;
 
   if (learnedGood.length > 0)
     prompt += `\n\nPREFERRED STYLE (based on past approvals): ${learnedGood.slice(-3).join(', ')}`;
@@ -58,23 +57,12 @@ async function buildPrompt(topic, postText, feedbackHistory = [], rejectionRemar
   if (rejectionRemarks)
     prompt += `\n\nUSER FEEDBACK ON PREVIOUS IMAGES (apply this): ${rejectionRemarks}`;
 
-  console.log('Visual concept:', visualConcept);
   return prompt;
 }
 
-function getTopicImageDetails(topic) {
-  const map = {
-    'זמן מסך': 'parent and child having a calm conversation, clock visible in background, balanced mood',
-    'טיפים למשחק עם ילדים': 'parent and child sitting together smiling, cooperative and playful atmosphere',
-    'מורה נבוכים': 'parent looking curious and thoughtful, learning atmosphere, books or notes nearby',
-    'הכר את המשחק': 'child excited and engaged, parent watching with interest, positive energy',
-    'מחקרים וממצאים': 'clean informative mood, parent reading, calm and intellectual atmosphere'
-  };
-  return map[topic.category] || 'parent and child in positive interaction, warm family moment';
-}
-
-export async function generateImages(topic, postText, feedbackHistory = [], rejectionRemarks = '', configOverrides = {}) {
-  const prompt = await buildPrompt(topic, postText, feedbackHistory, rejectionRemarks, configOverrides);
+// Returns { images: [base64, base64], prompt }
+export async function generateImages(postText, feedbackHistory = [], rejectionRemarks = '', configOverrides = {}, persona) {
+  const prompt = await buildPrompt(postText, feedbackHistory, rejectionRemarks, configOverrides, persona);
   console.log('Generating 2 images with prompt:', prompt.slice(0, 100) + '...');
 
   const [img1, img2] = await Promise.all([
@@ -83,9 +71,4 @@ export async function generateImages(topic, postText, feedbackHistory = [], reje
   ]);
 
   return { images: [img1.data[0].b64_json, img2.data[0].b64_json], prompt };
-}
-
-export async function downloadImage(url) {
-  const response = await axios.get(url, { responseType: 'arraybuffer' });
-  return Buffer.from(response.data);
 }

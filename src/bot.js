@@ -151,6 +151,32 @@ export async function sendCommentPrompt() {
   );
 }
 
+// ─── בחירת פוסט קיים או כתיבה עצמאית (לתהליך /תמונה) ───────────────────────
+export async function sendPostPicker(posts) {
+  const bot = getBot();
+
+  let text = '🖼️ <b>יצירת תמונה</b>\n\nבחר פוסט לשיוך התמונה, או כתוב טקסט חופשי:\n\n';
+
+  const buttons = [];
+
+  if (posts.length === 0) {
+    text += 'אין פוסטים ללא תמונה.\n';
+  } else {
+    posts.forEach((post, i) => {
+      text += `<b>${i + 1}. ${post['נושא']}</b> — ${post['תאריך']}\n`;
+      buttons.push([{ text: `${i + 1}. ${post['נושא']}`, callback_data: `pick_${i}` }]);
+    });
+    text += '\n';
+  }
+
+  buttons.push([{ text: '✍️ כתוב טקסט משלך', callback_data: 'pick_own' }]);
+
+  return bot.sendMessage(GROUP_ID, text, {
+    parse_mode: 'HTML',
+    reply_markup: { inline_keyboard: buttons }
+  });
+}
+
 // ─── הצגת הצעות שיפור לאישור ─────────────────────────────────────────────────
 export async function sendImprovementSuggestion(suggestion, index) {
   const bot = getBot();
