@@ -42,12 +42,33 @@ async function ensureSheet(sheetType) {
   const sheets = getSheets();
   const sheetName = SHEET_NAMES[sheetType];
 
+  // Check which tabs exist
+  const meta = await sheets.spreadsheets.get({ spreadsheetId: SHEET_ID });
+  const existingNames = meta.data.sheets.map(s => s.properties.title);
+
+  if (!existingNames.includes(sheetName)) {
+    // Create the missing tab
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: SHEET_ID,
+      requestBody: { requests: [{ addSheet: { properties: { title: sheetName } } }] }
+    });
+    // Write headers to the new tab
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SHEET_ID,
+      range: `${sheetName}!A1`,
+      valueInputOption: 'RAW',
+      requestBody: { values: [HEADERS[sheetType]] }
+    });
+    console.log(`Created sheet: ${sheetName}`);
+    return;
+  }
+
+  // Tab exists — check for headers
   try {
     const res = await sheets.spreadsheets.values.get({
       spreadsheetId: SHEET_ID,
       range: `${sheetName}!A1:Z1`
     });
-
     if (!res.data.values || res.data.values.length === 0) {
       await sheets.spreadsheets.values.update({
         spreadsheetId: SHEET_ID,
@@ -57,7 +78,7 @@ async function ensureSheet(sheetType) {
       });
     }
   } catch (err) {
-    console.error(`Error ensuring sheet ${sheetName}:`, err.message);
+    console.error(`Error ensuring headers for ${sheetName}:`, err.message);
   }
 }
 
