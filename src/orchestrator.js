@@ -1,12 +1,12 @@
 import 'dotenv/config';
 import { persona } from './personas/smartplay.js';
-import { generateTopics, generatePosts, generateImprovements } from './agents/contentWriter.js';
+import { generateTopics, generatePosts, generateImprovements, mergeImprovement } from './agents/contentWriter.js';
 import { generateImages } from './agents/visualProvider.js';
 import { publishPost } from './agents/socialPoster.js';
 import {
   logToSheets, getFeedbackHistory, getPastTopics,
-  getPostCount, saveConfig, getActiveConfig,
-  getPostsWithoutImages, updatePostImage   // both added to sheets.js in Part 2
+  getPostCount, getActivePrompt, updatePrompt,
+  getPostsWithoutImages, updatePostImage
 } from './sheets.js';
 import { uploadToDrive } from './drive.js';
 import {
@@ -22,7 +22,7 @@ const bot = getBot();
 const GROUP_ID = process.env.TELEGRAM_GROUP_ID;
 
 // ── improvement check (runs at start of /הפעל and /פוסט) ─────────────────────
-async function runImprovementCheck() {
+async function runImprovementCheck(activeTextPrompt, activeImagePrompt) {
   const postCount = await getPostCount();
   if (postCount === 0 || postCount % 10 !== 0) return;
 
@@ -35,8 +35,11 @@ async function runImprovementCheck() {
     await sendImprovementSuggestion(suggestions[i], i);
     const response = await waitForResponse({ type: 'callback', prefix: 'improve_' });
     if (response.data.includes('approve')) {
-      await saveConfig(suggestions[i].type, suggestions[i].description, suggestions[i].suggestion);
-      await sendStatus('✅ שיפור אושר ונשמר!');
+      const currentPrompt = suggestions[i].type === 'text_prompt' ? activeTextPrompt : activeImagePrompt;
+      await sendStatus('🔄 ממזג שיפור לתוך הפרומפט...');
+      const updatedPrompt = await mergeImprovement(currentPrompt, suggestions[i].suggestion);
+      await updatePrompt(suggestions[i].type, updatedPrompt);
+      await sendStatus('✅ פרומפט עודכן ונשמר בגיליון!');
     } else {
       await sendStatus('❌ שיפור נדחה.');
     }
@@ -46,7 +49,7 @@ async function runImprovementCheck() {
 
 // ── content writer sub-flow ───────────────────────────────────────────────────
 // Returns { postId, selectedTopic, topics, posts, selectedPost, wasEdited }
-async function runContentWriter(activeConfig) {
+async function runContentWriter(activeTextPrompt) {
   await sendStatus('מחפש נושאים רלוונטיים...');
   const pastTopics = await getPastTopics();
   const topics = await generateTopics(pastTopics, persona);
@@ -58,7 +61,7 @@ async function runContentWriter(activeConfig) {
   await sendStatus(`נבחר: <b>${selectedTopic.title}</b>\nכותב שתי גרסאות...`);
 
   const feedbackHistory = await getFeedbackHistory();
-  const posts = await generatePosts(selectedTopic, feedbackHistory, activeConfig, persona);
+  const posts = await generatePosts(selectedTopic, feedbackHistory, activeTextPrompt, persona);
   const postId = `post_${Date.now()}`;
   await sendTextSelection(posts, postId);
 
@@ -80,14 +83,14 @@ async function runContentWriter(activeConfig) {
 
 // ── visual provider sub-flow ──────────────────────────────────────────────────
 // Returns { imagePrompt, selectedDriveLink, imgIndex, rating, comment }
-async function runVisualProvider(postText, activeConfig, uploadId) {
+async function runVisualProvider(postText, activeImagePrompt, uploadId) {
   const imageFeedbackHistory = await getFeedbackHistory('images');
   let imageUrls, imagePrompt, selectedDriveLink, imgIndex;
   let rejectionRemarks = '';
 
   while (true) {
     await sendStatus('מייצר שתי תמונות...');
-    const result = await generateImages(postText, imageFeedbackHistory, rejectionRemarks, activeConfig, persona);
+    const result = await generateImages(postText, imageFeedbackHistory, rejectionRemarks, activeImagePrompt, persona);
     imageUrls = result.images;
     imagePrompt = result.prompt;
 
@@ -130,13 +133,17 @@ async function runVisualProvider(postText, activeConfig, uploadId) {
 
 // ── /הפעל — full flow ─────────────────────────────────────────────────────────
 async function runFullFlow() {
-  await runImprovementCheck();
-  const activeConfig = await getActiveConfig();
+  const [activeTextPrompt, activeImagePrompt] = await Promise.all([
+    getActivePrompt('text_prompt', persona.postSystemPrompt),
+    getActivePrompt('image_prompt', persona.imageBasePrompt)
+  ]);
 
-  const { postId, selectedTopic, topics, posts, selectedPost, wasEdited } = await runContentWriter(activeConfig);
+  await runImprovementCheck(activeTextPrompt, activeImagePrompt);
+
+  const { postId, selectedTopic, topics, posts, selectedPost, wasEdited } = await runContentWriter(activeTextPrompt);
 
   const { imagePrompt, selectedDriveLink, imgIndex, rating, comment } =
-    await runVisualProvider(selectedPost, activeConfig, postId);
+    await runVisualProvider(selectedPost, activeImagePrompt, postId);
 
   await logToSheets('image_feedback', {
     post_id: postId,
@@ -176,10 +183,14 @@ async function runFullFlow() {
 
 // ── /פוסט — content writer only ───────────────────────────────────────────────
 async function runContentOnly() {
-  await runImprovementCheck();
-  const activeConfig = await getActiveConfig();
+  const [activeTextPrompt, activeImagePrompt] = await Promise.all([
+    getActivePrompt('text_prompt', persona.postSystemPrompt),
+    getActivePrompt('image_prompt', persona.imageBasePrompt)
+  ]);
 
-  const { postId, selectedTopic, topics, posts, selectedPost, wasEdited } = await runContentWriter(activeConfig);
+  await runImprovementCheck(activeTextPrompt, activeImagePrompt);
+
+  const { postId, selectedTopic, topics, posts, selectedPost, wasEdited } = await runContentWriter(activeTextPrompt);
 
   await sendStatus('שומר פוסט...');
   await logToSheets('posts', {
@@ -205,7 +216,7 @@ async function runContentOnly() {
 
 // ── /תמונה — visual provider only ────────────────────────────────────────────
 async function runVisualOnly() {
-  const activeConfig = await getActiveConfig();
+  const activeImagePrompt = await getActivePrompt('image_prompt', persona.imageBasePrompt);
 
   // Show last 5 posts without images + "write your own" option
   const pendingPosts = await getPostsWithoutImages(5);
@@ -230,7 +241,7 @@ async function runVisualOnly() {
 
   const uploadId = postId || `standalone_${Date.now()}`;
   const { imagePrompt, selectedDriveLink, imgIndex, rating, comment } =
-    await runVisualProvider(postText, activeConfig, uploadId);
+    await runVisualProvider(postText, activeImagePrompt, uploadId);
 
   await logToSheets('image_feedback', {
     post_id: uploadId,

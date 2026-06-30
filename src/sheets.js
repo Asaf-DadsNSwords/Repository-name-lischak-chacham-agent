@@ -18,7 +18,7 @@ function getSheets() {
 const SHEET_NAMES = {
   posts: 'פוסטים',
   image_feedback: 'פידבק תמונות',
-  config: 'קונפיגורציה'
+  prompts: 'פרומפטים'
 };
 
 const HEADERS = {
@@ -33,8 +33,8 @@ const HEADERS = {
     'תאריך', 'post_id', 'קטגוריה', 'גרסה',
     'prompt', 'דירוג', 'הערה', 'אושרה', 'drive_link'
   ],
-  config: [
-    'תאריך', 'סוג', 'תיאור_השינוי', 'ערך', 'פעיל'
+  prompts: [
+    'תאריך', 'סוג', 'גרסה', 'פרומפט', 'פעיל'
   ]
 };
 
@@ -189,22 +189,76 @@ export async function getPostCount() {
   }
 }
 
-export async function saveConfig(type, description, value) {
+// Returns the active prompt text for the given type (text_prompt or image_prompt).
+// If no active row exists, seeds from defaultPrompt and returns it.
+export async function getActivePrompt(type, defaultPrompt) {
   const sheets = getSheets();
-  await ensureSheet('config');
+  await ensureSheet('prompts');
+
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: SHEET_ID,
+    range: `${SHEET_NAMES.prompts}!A:E`
+  });
+  const rows = res.data.values || [];
+  const dataRows = rows.slice(1);
+
+  const activeRow = dataRows.find(r => r[1] === type && r[4] === 'כן');
+  if (activeRow) return activeRow[3];
+
+  // No active row for this type — seed from default
+  const versionCount = dataRows.filter(r => r[1] === type).length;
   await sheets.spreadsheets.values.append({
     spreadsheetId: SHEET_ID,
-    range: `${SHEET_NAMES.config}!A:Z`,
+    range: `${SHEET_NAMES.prompts}!A:E`,
     valueInputOption: 'RAW',
     requestBody: { values: [[
       new Date().toLocaleDateString('he-IL'),
       type,
-      description,
-      value,
+      versionCount + 1,
+      defaultPrompt,
       'כן'
     ]] }
   });
-  console.log(`Config saved: ${type}`);
+  console.log(`Seeded ${type} prompt as version ${versionCount + 1}`);
+  return defaultPrompt;
+}
+
+// Marks the current active prompt as inactive and writes a new active version.
+export async function updatePrompt(type, newPrompt) {
+  const sheets = getSheets();
+  await ensureSheet('prompts');
+
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: SHEET_ID,
+    range: `${SHEET_NAMES.prompts}!A:E`
+  });
+  const rows = res.data.values || [];
+
+  // Mark current active row as inactive
+  const activeIndex = rows.findIndex((r, i) => i > 0 && r[1] === type && r[4] === 'כן');
+  if (activeIndex !== -1) {
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SHEET_ID,
+      range: `${SHEET_NAMES.prompts}!E${activeIndex + 1}`,
+      valueInputOption: 'RAW',
+      requestBody: { values: [['לא']] }
+    });
+  }
+
+  const versionCount = rows.slice(1).filter(r => r[1] === type).length;
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: SHEET_ID,
+    range: `${SHEET_NAMES.prompts}!A:E`,
+    valueInputOption: 'RAW',
+    requestBody: { values: [[
+      new Date().toLocaleDateString('he-IL'),
+      type,
+      versionCount + 1,
+      newPrompt,
+      'כן'
+    ]] }
+  });
+  console.log(`Updated ${type} prompt to version ${versionCount + 1}`);
 }
 
 export async function getPostsWithoutImages(n = 5) {
@@ -284,27 +338,3 @@ function columnLetter(index) {
   return letter;
 }
 
-export async function getActiveConfig() {
-  const sheets = getSheets();
-  try {
-    await ensureSheet('config');
-    const res = await sheets.spreadsheets.values.get({
-      spreadsheetId: SHEET_ID,
-      range: `${SHEET_NAMES.config}!A:Z`
-    });
-    const rows = res.data.values || [];
-    if (rows.length <= 1) return {};
-    const headers = rows[0];
-    const config = {};
-    rows.slice(1).forEach(row => {
-      const obj = {};
-      headers.forEach((h, i) => { obj[h] = row[i] || ''; });
-      if (obj['פעיל'] === 'כן') {
-        config[obj['סוג']] = { value: obj['ערך'], description: obj['תיאור_השינוי'] };
-      }
-    });
-    return config;
-  } catch {
-    return {};
-  }
-}

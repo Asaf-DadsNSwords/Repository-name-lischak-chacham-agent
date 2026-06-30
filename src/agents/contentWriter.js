@@ -57,7 +57,7 @@ export async function generateTopics(pastTopics = [], persona) {
 }
 
 // Returns array of 2 post strings
-export async function generatePosts(topic, feedbackHistory = [], configOverrides = {}, persona) {
+export async function generatePosts(topic, feedbackHistory = [], activeTextPrompt, persona) {
   let feedbackContext = '';
   if (feedbackHistory.length > 0) {
     const recent = feedbackHistory.slice(-8);
@@ -68,11 +68,7 @@ export async function generatePosts(topic, feedbackHistory = [], configOverrides
     feedbackContext += '\n';
   }
 
-  const configAddition = configOverrides['text_prompt']
-    ? `\nשיפורים שאושרו:\n- ${configOverrides['text_prompt'].value}\n`
-    : '';
-
-  const systemPrompt = `${persona.postSystemPrompt}${feedbackContext}${configAddition}`;
+  const systemPrompt = `${activeTextPrompt}${feedbackContext}`;
 
   const userPrompt = `כתוב שתי גרסאות שונות לפוסט בנושא: "${topic.title}"
 קטגוריה: ${topic.category}
@@ -91,6 +87,34 @@ export async function generatePosts(topic, feedbackHistory = [], configOverrides
 
   const raw = response.content[0].text.replace(/```json|```/g, '').trim();
   return JSON.parse(raw).posts;
+}
+
+// Merges an approved improvement instruction into an existing full prompt.
+// Returns the complete updated prompt text.
+export async function mergeImprovement(currentPrompt, instruction) {
+  const response = await anthropic.messages.create({
+    model: 'claude-sonnet-4-5',
+    max_tokens: 2000,
+    messages: [{
+      role: 'user',
+      content: `You are updating a content prompt based on an approved improvement instruction.
+
+Current prompt:
+${currentPrompt}
+
+Approved improvement to incorporate:
+${instruction}
+
+Rules:
+- Integrate the improvement naturally into the relevant part of the existing prompt
+- Do not add a separate "improvements" section — weave it in
+- Keep all existing instructions intact unless directly contradicted by the improvement
+- Return the complete updated prompt only, no explanation or commentary
+
+Updated prompt:`
+    }]
+  });
+  return response.content[0].text.trim();
 }
 
 // Returns array of 2 suggestion objects: { type, description, suggestion }

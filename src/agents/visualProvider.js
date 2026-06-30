@@ -28,7 +28,7 @@ ${postText}`
   return response.content[0].text.trim();
 }
 
-async function buildPrompt(postText, feedbackHistory = [], rejectionRemarks = '', configOverrides = {}, persona) {
+async function buildPrompt(postText, feedbackHistory = [], rejectionRemarks = '', activeImagePrompt, persona) {
   const learnedGood = [];
   const learnedBad = [];
 
@@ -44,15 +44,12 @@ async function buildPrompt(postText, feedbackHistory = [], rejectionRemarks = ''
   const visualConcept = await extractVisualConcept(postText);
   console.log('Visual concept:', visualConcept);
 
-  let prompt = `${persona.imageBasePrompt}, ${visualConcept}`;
+  let prompt = `${activeImagePrompt}, ${visualConcept}`;
 
   if (learnedGood.length > 0)
     prompt += `\n\nPREFERRED STYLE (based on past approvals): ${learnedGood.slice(-3).join(', ')}`;
   if (learnedBad.length > 0)
     prompt += `\n\nAVOID: ${learnedBad.slice(-3).join(', ')}`;
-
-  if (configOverrides['image_prompt'])
-    prompt += `\n\nAPPROVED STYLE IMPROVEMENTS: ${configOverrides['image_prompt'].value}`;
 
   if (rejectionRemarks)
     prompt += `\n\nUSER FEEDBACK ON PREVIOUS IMAGES (apply this): ${rejectionRemarks}`;
@@ -61,8 +58,8 @@ async function buildPrompt(postText, feedbackHistory = [], rejectionRemarks = ''
 }
 
 // Returns { images: [base64, base64], prompt }
-export async function generateImages(postText, feedbackHistory = [], rejectionRemarks = '', configOverrides = {}, persona) {
-  const prompt = await buildPrompt(postText, feedbackHistory, rejectionRemarks, configOverrides, persona);
+export async function generateImages(postText, feedbackHistory = [], rejectionRemarks = '', activeImagePrompt, persona) {
+  const prompt = await buildPrompt(postText, feedbackHistory, rejectionRemarks, activeImagePrompt, persona);
   console.log('Generating 2 images with prompt:', prompt.slice(0, 100) + '...');
 
   const [img1, img2] = await Promise.all([
