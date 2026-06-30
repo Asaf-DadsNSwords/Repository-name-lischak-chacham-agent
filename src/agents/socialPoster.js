@@ -1,6 +1,7 @@
 import axios from 'axios';
 
 const PAGE_TOKEN = process.env.META_PAGE_ACCESS_TOKEN;
+const USER_TOKEN = process.env.META_USER_ACCESS_TOKEN;
 const PAGE_ID = process.env.FACEBOOK_PAGE_ID;
 const IG_ACCOUNT_ID = process.env.INSTAGRAM_ACCOUNT_ID;
 const GRAPH = 'https://graph.facebook.com/v25.0';
@@ -17,12 +18,14 @@ async function postToFacebook(text, imageUrl) {
 }
 
 async function postToInstagram(text, imageUrl) {
+  const igToken = USER_TOKEN || PAGE_TOKEN;
+
   // Step 1: create media container
   const container = await axios.post(`${GRAPH}/${IG_ACCOUNT_ID}/media`, null, {
     params: {
       image_url: imageUrl,
       caption: text,
-      access_token: PAGE_TOKEN
+      access_token: igToken
     }
   });
   const creationId = container.data.id;
@@ -31,7 +34,7 @@ async function postToInstagram(text, imageUrl) {
   const publish = await axios.post(`${GRAPH}/${IG_ACCOUNT_ID}/media_publish`, null, {
     params: {
       creation_id: creationId,
-      access_token: PAGE_TOKEN
+      access_token: igToken
     }
   });
   return publish.data.id;
