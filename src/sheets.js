@@ -44,9 +44,9 @@ async function ensureSheet(sheetType) {
 
   // Check which tabs exist
   const meta = await sheets.spreadsheets.get({ spreadsheetId: SHEET_ID });
-  const existingNames = meta.data.sheets.map(s => s.properties.title);
+  const existingNames = meta.data.sheets.map(s => s.properties.title.trim());
 
-  if (!existingNames.includes(sheetName)) {
+  if (!existingNames.includes(sheetName.trim())) {
     // Create the missing tab
     await sheets.spreadsheets.batchUpdate({
       spreadsheetId: SHEET_ID,

@@ -56,8 +56,15 @@ async function runContentWriter(activeTextPrompt) {
   await sendTopicSelection(topics);
 
   const topicResponse = await waitForResponse({ type: 'callback', prefix: 'topic_' });
-  const topicIndex = parseInt(topicResponse.data.split('_')[1]);
-  const selectedTopic = topics[topicIndex];
+  let selectedTopic;
+  if (topicResponse.data === 'topic_own') {
+    await sendStatus('כתוב את הנושא שלך:');
+    const ownTopicResponse = await waitForResponse({ type: 'text' });
+    selectedTopic = { title: ownTopicResponse.data, description: '', category: 'כללי' };
+  } else {
+    const topicIndex = parseInt(topicResponse.data.split('_')[1]);
+    selectedTopic = topics[topicIndex];
+  }
   await sendStatus(`נבחר: <b>${selectedTopic.title}</b>\nכותב שתי גרסאות...`);
 
   const feedbackHistory = await getFeedbackHistory();
@@ -171,13 +178,14 @@ async function runFullFlow() {
     published_instagram: false
   });
 
-  await publishPost(selectedPost, selectedDriveLink, persona);
+  const publishResult = await publishPost(selectedPost, selectedDriveLink, persona);
 
   await sendSuccess(
     `✅ <b>פוסט מוכן ונשמר!</b>\n\n` +
     `<b>נושא:</b> ${selectedTopic.title}\n` +
     `<b>קטגוריה:</b> ${selectedTopic.category}\n\n` +
-    `פרסום לפייסבוק ואינסטגרם יתווסף בקרוב.`
+    `<b>פייסבוק:</b> ${publishResult.facebook ? '✅ פורסם' : '❌ לא פורסם'}\n` +
+    `<b>אינסטגרם:</b> ${publishResult.instagram ? '✅ פורסם' : '❌ לא פורסם'}`
   );
 }
 

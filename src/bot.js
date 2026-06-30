@@ -44,7 +44,8 @@ export async function sendTopicSelection(topics) {
   const keyboard = {
     inline_keyboard: [
       topics.slice(0, 3).map((t, i) => ({ text: `${i + 1}. ${t.title}`, callback_data: `topic_${i}` })),
-      topics.slice(3).map((t, i) => ({ text: `${i + 4}. ${t.title}`, callback_data: `topic_${i + 3}` }))
+      topics.slice(3).map((t, i) => ({ text: `${i + 4}. ${t.title}`, callback_data: `topic_${i + 3}` })),
+      [{ text: '✍️ נושא משלי', callback_data: 'topic_own' }]
     ].filter(row => row.length > 0)
   };
 

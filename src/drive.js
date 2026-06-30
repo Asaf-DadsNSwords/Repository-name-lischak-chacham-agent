@@ -27,12 +27,20 @@ export async function uploadToDrive(imageBase64, postId, version, status) {
   const response = await drive.files.create({
     requestBody: { name: fileName, parents: [monthFolder] },
     media: { mimeType: 'image/png', body: Readable.from(imageBuffer) },
-    fields: 'id, webViewLink',
+    fields: 'id',
     supportsAllDrives: true
   });
 
+  const fileId = response.data.id;
+
+  await drive.permissions.create({
+    fileId,
+    supportsAllDrives: true,
+    requestBody: { role: 'reader', type: 'anyone' }
+  });
+
   console.log(`Uploaded to Drive: ${fileName}`);
-  return response.data.webViewLink;
+  return `https://drive.google.com/uc?export=download&id=${fileId}`;
 }
 
 async function getOrCreateMonthFolder(drive) {
