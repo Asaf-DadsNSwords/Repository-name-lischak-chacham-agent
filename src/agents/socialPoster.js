@@ -51,6 +51,13 @@ export async function publishPost(post, imageUrl, persona) {
     return { published: false, facebook: false, instagram: false };
   }
 
+  if (process.env.DRY_RUN === 'true') {
+    console.log('Social Poster [DRY RUN]: would post to Facebook and Instagram.');
+    console.log('DRY RUN image URL:', imageUrl);
+    console.log('DRY RUN caption:', post.slice(0, 100) + '...');
+    return { published: false, facebook: false, instagram: false, dryRun: true };
+  }
+
   let facebookId = null;
   let instagramId = null;
 

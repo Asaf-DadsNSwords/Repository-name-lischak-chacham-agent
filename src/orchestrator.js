@@ -184,8 +184,8 @@ async function runFullFlow() {
     `✅ <b>פוסט מוכן ונשמר!</b>\n\n` +
     `<b>נושא:</b> ${selectedTopic.title}\n` +
     `<b>קטגוריה:</b> ${selectedTopic.category}\n\n` +
-    `<b>פייסבוק:</b> ${publishResult.facebook ? '✅ פורסם' : '❌ לא פורסם'}\n` +
-    `<b>אינסטגרם:</b> ${publishResult.instagram ? '✅ פורסם' : '❌ לא פורסם'}`
+    `<b>פייסבוק:</b> ${publishResult.dryRun ? '🧪 DRY RUN' : publishResult.facebook ? '✅ פורסם' : '❌ לא פורסם'}\n` +
+    `<b>אינסטגרם:</b> ${publishResult.dryRun ? '🧪 DRY RUN' : publishResult.instagram ? '✅ פורסם' : '❌ לא פורסם'}`
   );
 }
 
